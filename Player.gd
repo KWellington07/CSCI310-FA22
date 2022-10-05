@@ -1,111 +1,64 @@
 extends KinematicBody2D
 
-var speed = 400
-var maxSpeed = 150
-var jumpSpeed = 250
-var gravity = 500
-var friction = 0.5
-var velocity = Vector2()
-var resistance = 0.7
-var jumpNumber = 2
+export(int) var JUMP_FORCE = -130
+export(int) var JUMP_RELEASE_FORCE = -70
+export(int) var MAX_SPEED = 50
+export(int) var ACCELERATION = 10
+export(int) var FRICTION = 10
+export(int) var GRAVITY = 4
+export(int) var ADDITIONAL_FALL_GRAVITY = 4
 
-#const dashSpeed = 500
-#const dashLength = .2
+var velocity = Vector2.ZERO
 
-#onready var dash = $Dash
+onready var animatedSprite = $AnimatedSprite
 
-var wallJump = 150
-var jumpWall = 60
-
-var dash = 1000
-var l_dash = -1000
-
-var dashDirection = Vector2(1, 0)
-var canDash = false
-var dashing = false
-
-onready var animatedSprite = get_node("AnimatedSprite")
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(_delta):
-	pass
-
-func _physics_process(delta: float):
-	dash()
-	
-	
-	var movement_x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
-	
-#	if Input.is_action_just_pressed("ui_dash"):
-#		dash.start_dash(dashLength)
-#		animatedSprite.play("dash")
-#	var normalspeed = dashSpeed if dash.is_dashing() else maxSpeed
-			
-	if movement_x != 0:
-		animatedSprite.play("walk")
-		velocity.x += movement_x * speed * delta
-		velocity.x = clamp(velocity.x, -maxSpeed, maxSpeed)
-		animatedSprite.flip_h = movement_x < 0
-	
-	if is_on_floor() or nextToWall():
-		jumpNumber = 2
-		if movement_x == 0:
-			velocity.x = lerp(velocity.x, 0, friction)
-			animatedSprite.play("idle")
-		if Input.is_action_just_pressed("ui_accept") and jumpNumber > 0:
-			velocity.y -= jumpSpeed
-			jumpNumber -= 1
-			animatedSprite.play("jump")
-			if not is_on_floor() and nextToRightWall():
-				velocity.x -= wallJump
-				velocity.y -= jumpWall
-			if not is_on_floor() and nextToLeftWall():
-				velocity.x += wallJump
-				velocity.y -= jumpWall
-		if nextToWall() and velocity.y > 30:
-			velocity.y = 30
-			if nextToRightWall():
-				animatedSprite.flip_h = true
-				animatedSprite.play("wallSliding")
-			elif nextToLeftWall():
-				animatedSprite.flip_h = false
-				animatedSprite.play("wallSliding")
-	else:
-		if movement_x == 0:
-			animatedSprite.play("jump")
-			velocity.x = lerp(velocity.x, 0, resistance)
-	velocity.y += gravity * delta
-	velocity = move_and_slide(velocity, Vector2.UP)	
-	
-# warning-ignore:function_conflicts_variable
-func dash():
-	if is_on_floor():	canDash = true
-	
-	if Input.is_action_pressed("ui_right"):
-		dashDirection = Vector2(1, 0)
-		animatedSprite.flip_h = false
-	if Input.is_action_pressed("ui_left"):
-		dashDirection = Vector2(-1, 0)
-		animatedSprite.flip_h = true
-	if Input.is_action_just_pressed("ui_dash") and canDash:
-		velocity = dashDirection.normalized() * 4000
-		canDash = false
-		dashing = true
-		yield(get_tree().create_timer(0.2), "timeout")
-		dashing = false
-		animatedSprite.play("dash")
-	
-func nextToWall():
-	return nextToRightWall() or nextToLeftWall()
-	
-func nextToRightWall():
-	return $RightWall.is_colliding()
-
-func nextToLeftWall():
-	return $LeftWall.is_colliding()
-		
-
-# Called when the node enters the scene tree for the first time.
 func _ready():
 	pass # Replace with function body.
 
+func _physics_process(delta):
+	apply_gravity() 
+	var input = Vector2.ZERO
+	input.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
+
+	if input.x == 0:
+		apply_friction()
+		animatedSprite.animation = "Idle"
+	else:
+		apply_acceleration(input.x)
+		animatedSprite.animation = "Run"
+		
+		if input.x > 0:
+			animatedSprite.flip_h = false
+		elif input.x < 0:
+			animatedSprite.flip_h = true
+		
+	if is_on_floor():
+		if Input.is_action_just_pressed("ui_up"):
+			velocity.y = JUMP_FORCE
+			
+	else:
+		animatedSprite.animation  = "Jump2"
+		if Input.is_action_just_released("ui_up") and velocity.y < JUMP_RELEASE_FORCE:
+			velocity.y = JUMP_RELEASE_FORCE
+			
+		if velocity.y > 0:
+			animatedSprite.animation = "Falling"
+			velocity.y += ADDITIONAL_FALL_GRAVITY
+	
+	var was_in_air = not is_on_floor()	
+	velocity = move_and_slide(velocity, Vector2.UP)
+	var just_landed = is_on_floor() and was_in_air
+	if just_landed:
+		animatedSprite.animation = "Landing"
+
+
+func apply_gravity():
+	velocity.y += GRAVITY
+	velocity.y = min(velocity.y, 100)
+	
+func apply_friction():
+	velocity.x = move_toward(velocity.x, 0, FRICTION)
+
+func apply_acceleration(amount):
+	velocity.x = move_toward(velocity.x, MAX_SPEED * amount, ACCELERATION)
+	
