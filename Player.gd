@@ -9,15 +9,23 @@ export(int) var GRAVITY = 4
 export(int) var ADDITIONAL_FALL_GRAVITY = 4
 
 var velocity = Vector2.ZERO
+var motion = Vector2()
 
 onready var animatedSprite = $AnimatedSprite
+var attacking = false
+var attack_anim = null
+var anim_numb = 1
+
+
 
 func _ready():
 	pass # Replace with function body.
 
 func _physics_process(delta):
 	apply_gravity() 
+	attack_anim = "Knuckle"+str(anim_numb)
 	var input = Vector2.ZERO
+
 	input.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
 
 	if input.x == 0:
@@ -45,6 +53,16 @@ func _physics_process(delta):
 			animatedSprite.animation = "Falling"
 			velocity.y += ADDITIONAL_FALL_GRAVITY
 	
+	if Input.is_action_just_pressed("light_attack"):
+		$Timer.start()
+		attack()
+		
+		if $Timer.time_left > 0:
+			anim_numb += 1
+		if anim_numb == 4:
+			anim_numb = 1
+			
+	
 	var was_in_air = not is_on_floor()	
 	velocity = move_and_slide(velocity, Vector2.UP)
 	var just_landed = is_on_floor() and was_in_air
@@ -61,4 +79,15 @@ func apply_friction():
 
 func apply_acceleration(amount):
 	velocity.x = move_toward(velocity.x, MAX_SPEED * amount, ACCELERATION)
+	
+func attack():
+	attacking = true
+	$AnimatedSprite.play(attack_anim)
+	yield($AnimatedSprite, "animation_finished")
+	attacking = false
+	
+func _on_Timer_timeout():
+	anim_numb = 1
+
+
 	
