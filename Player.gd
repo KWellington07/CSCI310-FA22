@@ -16,6 +16,7 @@ var attacking = false
 var attack_anim = null
 var anim_numb = 1
 
+onready var ladderCheck = $LadderCheck
 
 
 func _ready():
